@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram USN Hunter - Anti-Stuck Version</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        .status-available { color: #10B981; font-weight: bold; background-color: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.3) !important; }
+        .status-taken { color: #EF4444; font-weight: bold; background-color: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.2) !important; }
+        .status-error { color: #F59E0B; font-weight: bold; background-color: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.2) !important; }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen font-sans">
+
+    <div class="max-w-5xl mx-auto px-4 py-10">
+        <header class="text-center mb-10">
+            <h1 class="text-3xl font-extrabold text-blue-400 tracking-tight">Telegram USN Hunter <span class="text-xs bg-green-500 text-black px-2 py-0.5 rounded ml-1 font-bold">STABLE V3</span></h1>
+            <p class="text-gray-400 mt-2 text-sm">Gunakan browser Chrome/Edge terbaru untuk hasil terbaik</p>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            <div class="bg-gray-900 p-6 rounded-2xl shadow-xl border border-gray-800 h-fit">
+                <h2 class="text-lg font-bold mb-4 border-b border-gray-800 pb-2 text-blue-300">Pengaturan Rumus</h2>
+                
+                <div class="space-y-3">
+                    <label class="flex items-center space-x-3 cursor-pointer">
+                        <input type="checkbox" id="rule-op" checked class="w-4 h-4 text-blue-500 rounded bg-gray-800 border-gray-700">
+                        <span>Canon / On Point (OP)</span>
+                    </label>
+                    <label class="flex items-center space-x-3 cursor-pointer">
+                        <input type="checkbox" id="rule-sop" checked class="w-4 h-4 text-blue-500 rounded bg-gray-800 border-gray-700">
+                        <span>Semi OP (i ⇄ l)</span>
+                    </label>
+                    <label class="flex items-center space-x-3 cursor-pointer">
+                        <input type="checkbox" id="rule-tamhur" checked class="w-4 h-4 text-blue-500 rounded bg-gray-800 border-gray-700">
+                        <span class="text-yellow-400 font-medium">Tamhur (Tengah/Akhir)</span>
+                    </label>
+                    <label class="flex items-center space-x-3 cursor-pointer">
+                        <input type="checkbox" id="rule-ganhur" class="w-4 h-4 text-blue-500 rounded bg-gray-800 border-gray-700">
+                        <span>Ganti Huruf (Ganhur)</span>
+                    </label>
+                    <label class="flex items-center space-x-3 cursor-pointer">
+                        <input type="checkbox" id="rule-double" checked class="w-4 h-4 text-blue-500 rounded bg-gray-800 border-gray-700">
+                        <span>Double Huruf</span>
+                    </label>
+                </div>
+
+                <div class="mt-6">
+                    <label class="block text-sm font-medium text-gray-400 mb-2">Kata Dasar (Base):</label>
+                    <input type="text" id="base-word" placeholder="Contoh: sean" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500">
+                </div>
+
+                <button id="btn-cari" class="w-full mt-5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold py-2.5 px-4 rounded-lg transition shadow-lg shadow-blue-600/20">
+                    🔍 Mulai Cari Username
+                </button>
+            </div>
+
+            <div class="md:col-span-2 bg-gray-900 p-6 rounded-2xl shadow-xl border border-gray-800">
+                <div class="flex justify-between items-center mb-4 border-b border-gray-800 pb-2">
+                    <h2 class="text-lg font-bold text-blue-300">Hasil Analisis</h2>
+                    <span id="total-count" class="text-xs bg-gray-800 text-gray-400 px-2 py-1 rounded-md">0 ditemukan</span>
+                </div>
+
+                <div class="overflow-y-auto max-h-[550px] pr-2 space-y-2" id="output-list">
+                    <p class="text-gray-500 text-center py-10 text-sm">Masukkan kata dasar dan klik tombol di samping.</p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('btn-cari').addEventListener('click', async () => {
+            try {
+                const baseInput = document.getElementById('base-word').value;
+                const base = baseInput.trim().toLowerCase().replace(/[^a-z]/g, '');
+                const outputList = document.getElementById('output-list');
+                const totalCount = document.getElementById('total-count');
+                
+                if (!base) {
+                    alert('Harap masukkan kata dasar (hanya alfabet a-z)!');
+                    return;
+                }
+
+                outputList.innerHTML = '<p class="text-gray-400 text-center py-10 text-sm animate-pulse">Sedang memproses rumus...</p>';
+                
+                const opChecked = document.getElementById('rule-op').checked;
+                const sopChecked = document.getElementById('rule-sop').checked;
+                const tamhurChecked = document.getElementById('rule-tamhur').checked;
+                const ganhurChecked = document.getElementById('rule-ganhur').checked;
+                const doubleChecked = document.getElementById('rule-double').checked;
+
+                let usernames = new Set();
+                const alphabet = 'abcdefghijklmnopqrstuvwxyz';
+
+                // --- Pengolahan Rumus ---
+                if (opChecked) {
+                    usernames.add(base);
+                    usernames.add(base + 's');
+                }
+
+                if (sopChecked) {
+                    let sopWord = base;
+                    if (base.includes('i')) sopWord = sopWord.replace(/i/g, 'l');
+                    else if (base.includes('l')) sopWord = sopWord.replace(/l/g, 'i');
+                    if (sopWord !== base) usernames.add(sopWord);
+                }
+
+                if (tamhurChecked) {
+                    const posisiKrusial = [1, base.length]; 
+                    posicsKrusial = [1, base.length];
+                    for (let pos of [1, base.length]) {
+                        for (let char of alphabet) {
+                            usernames.add(base.slice(0, pos) + char + base.slice(pos));
+                        }
+                    }
+                }
+
+                if (ganhurChecked) {
+                    for (let i = 1; i < base.length; i++) {
+                        for (let char of alphabet) {
+                            if (char !== base[i]) {
+                                usernames.add(base.slice(0, i) + char + base.slice(i + 1));
+                            }
+                        }
+                    }
+                }
+
+                if (doubleChecked) {
+                    for (let i = 0; i < base.length; i++) {
+                        usernames.add(base.slice(0, i + 1) + base.charAt(i) + base.slice(i + 1));
+                    }
+                }
+
+                let finalUsns = Array.from(usernames).filter(u => u.length >= 5);
+                totalCount.innerText = `${finalUsns.length} variasi dibuat`;
+
+                if (finalUsns.length === 0) {
+                    outputList.innerHTML = '<p class="text-gray-500 text-center py-10 text-sm">Tidak ada variasi di atas 5 huruf.</p>';
+                    return;
+                }
+
+                outputList.innerHTML = '';
+
+                // Cetak semua kolom antrean
+                finalUsns.forEach(usn => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = "flex justify-between items-center bg-gray-800/40 p-2.5 rounded-xl border border-gray-800 text-sm";
+                    itemDiv.id = `box-${usn}`;
+                    itemDiv.innerHTML = `
+                        <span class="font-mono text-gray-200">@${usn}</span>
+                        <span class="text-xs text-blue-400 font-medium" id="status-${usn}">Memproses...</span>
+                    `;
+                    outputList.appendChild(itemDiv);
+                });
+
+                // Jalankan Pengecekan Terkontrol (Mencegah browser hang)
+                const batchSize = 10; 
+                for (let i = 0; i < finalUsns.length; i += batchSize) {
+                    const batch = finalUsns.slice(i, i + batchSize);
+                    
+                    await Promise.all(batch.map(async (usn) => {
+                        const statusSpan = document.getElementById(`status-${usn}`);
+                        const boxDiv = document.getElementById(`box-${usn}`);
+                        
+                        let checkResult = await checkLiveTelegram(usn);
+                        
+                        if (checkResult === 'AVAILABLE') {
+                            boxDiv.className = "flex justify-between items-center p-2.5 rounded-xl border text-sm status-available";
+                            statusSpan.className = "text-emerald-400 font-bold text-xs";
+                            statusSpan.innerText = "✓ KOSONG";
+                        } else if (checkResult === 'TAKEN') {
+                            boxDiv.className = "flex justify-between items-center p-2.5 rounded-xl border text-sm status-taken";
+                            statusSpan.className = "text-red-400 text-xs";
+                            statusSpan.innerText = "✕ Terpakai";
+                        } else {
+                            boxDiv.className = "flex justify-between items-center p-2.5 rounded-xl border text-sm status-error";
+                            statusSpan.className = "text-amber-500 text-xs";
+                            statusSpan.innerText = "⚠ Terblokir Browser";
+                        }
+                    }));
+                    // Jeda sejenak antar gelombang agar server tidak kewalahan
+                    await new Promise(r => setTimeout(r, 200));
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Terjadi kesalahan sistem internal browser.");
+            }
+        });
+
+        async function checkLiveTelegram(username) {
+            try {
+                // Menggunakan cors-anywhere alternative yang lebih bersahabat untuk publik
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent('https://t.me/' + username)}`;
+                
+                // Set batas waktu respon maksimal 6 detik agar tidak hang selamanya
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 6000);
+                
+                const response = await fetch(proxyUrl, { signal: controller.signal });
+                clearTimeout(timeoutId);
+
+                if (!response.ok) return 'ERROR';
+                
+                const data = await response.json();
+                const htmlText = data.contents;
+                
+                if (!htmlText) return 'ERROR';
+
+                if (htmlText.includes("If you have Telegram, you can contact") || htmlText.includes("tgme_page_extra")) {
+                    if (htmlText.includes("tgme_page_title") || htmlText.includes("View in Telegram")) {
+                        return 'TAKEN'; 
+                    }
+                    return 'AVAILABLE'; 
+                }
+                return 'AVAILABLE'; 
+            } catch (e) {
+                return 'ERROR'; 
+            }
+        }
+    </script>
+</body>
+</html>
